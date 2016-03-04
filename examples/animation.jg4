@@ -1,0 +1,239 @@
+;
+; Animation and music sample for JG40
+; by DGM
+;
+
+; store 1 and 15 to RAM $1 and $2 to do the loop
+    sed $1
+    and 0
+    or 1
+    sta
+    sed $2
+    or 15
+    sta  
+
+; program a sequence of tones, 16 tones
+    sed $F
+    and 0
+    or $A
+    sta
+    and 0
+    or 15 
+    sta
+    ses Music1
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+
+start: 
+
+; play the sequence
+; since the entire animation takes around 800ms to happen, this will be  
+; called when a sequence is already being played, but it'll be just ignored
+    sed $F
+    and 0
+    or $B
+    sta
+
+; display the first animation frame, Image1
+    ses Image1
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+; do a 16 iterations loop
+loop1:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $1
+    add   ; adds 1
+    pua
+    not   ; negate
+    sed $2
+    add   ; adds 15
+    jc loop1
+    poa
+    
+; wait for a vsync twice
+    sed $F
+    and 0
+    or $4
+    sta 
+    sta
+
+; display the second animation frame, Image2
+    ses Image2
+    and 0
+    or $3
+    sta 
+; set accumulator to 15
+    or 15
+    pua
+; do a 16 iterations loop
+loop2:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $1
+    add   ; adds 1
+    pua
+    not   ; negate
+    sed $2
+    add   ; adds 15
+    jc loop2
+    poa
+    
+; wait for a vsync twice
+    sed $F
+    and 0
+    or $4
+    sta
+    sta
+
+; display the first animation frame, Image1
+    ses Image1
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+; do a 16 iterations loop
+loop3:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $1
+    add   ; adds 1
+    pua
+    not
+    sed $2
+    add   ; adds 15
+    jc loop3
+    poa
+    
+; wait for a vsync twice 
+    sed $F
+    and 0
+    or $4
+    sta
+    sta
+    
+; display the third animation frame, Image3
+    ses Image3
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+; do a 16 iterations loop
+loop4:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $1
+    add   ; adds 1
+    pua
+    not
+    sed $2
+    add   ; adds 15
+    jc loop4
+    poa
+    
+; wait for a vsync twice 
+    sed $F
+    and 0
+    or $4
+    sta
+    sta
+
+; jump back to the start
+    and 0
+    jz start
+
+; declare the images
+Image1:
+    db %00000000,%00000000
+    db %00000011,%10000000
+    db %00100010,%10001000
+    db %00100011,%10001000
+    db %00010001,%00010000
+    db %00001111,%11100000
+    db %00000001,%00000000
+    db %00000001,%00000000
+    db %00000001,%00000000
+    db %00000010,%10000000
+    db %00000010,%10000000
+    db %00000100,%01000000
+    db %00000100,%01000000
+    db %00001100,%01100000
+    db %00000000,%00000000
+    db %00000000,%00000000
+
+Image2:
+    db %00000000,%00000000
+    db %00000011,%10000000
+    db %00000010,%10000000
+    db %00110011,%10001100
+    db %00010001,%00010000
+    db %00001111,%11100000
+    db %00000001,%00000000
+    db %00000001,%00000000
+    db %00000010,%00000000
+    db %00000101,%00000000
+    db %00000100,%10000000
+    db %00000100,%01000000
+    db %00000100,%01000000
+    db %00001100,%01100000
+    db %00000000,%00000000
+    db %00000000,%00000000
+
+Image3:
+    db %00000000,%00000000
+    db %00000011,%10000000
+    db %00000010,%10000000
+    db %01100011,%10011000
+    db %00010001,%00010000
+    db %00001111,%11100000
+    db %00000001,%00000000
+    db %00000001,%00000000
+    db %00000000,%10000000
+    db %00000001,%01000000
+    db %00000010,%01000000
+    db %00000100,%01000000
+    db %00000100,%01000000
+    db %00001100,%01100000
+    db %00000000,%00000000
+    db %00000000,%00000000
+
+; declare the sequence of tones
+Music1:
+    dn 0,2,3,3,2,2,3,3,0,2,3,5,3,2,2,2
+
+; EOF

@@ -1,0 +1,627 @@
+;
+; SHOT MADNESS
+;
+; A simple shooting game for JG40
+; by DGM
+;
+
+start:
+; save 1 and 15 to RAM $0 and $1 for the loop 
+    sed $0
+    and 0
+    or 1
+    sta
+    sed $1
+    or 15
+    sta
+; pseudo-random number generator seed at RAM $3
+    sed $3
+    or 7 ;6
+    sta
+; player position at RAM $4
+    sed $4
+    and 0
+    or 8
+    sta
+; RAM at 5, 6 and 7 will be the player score
+    and 0
+    sed $5
+    sta
+    sed $6
+    sta
+    sed $7
+    or 2
+    sta
+; RAM at 8 will be used as auxiliary
+    and 0
+    sed $8
+    sta
+; bullet position at RAM $9 and $A
+    sed $9
+    sta
+    sed $A
+    sta
+    
+; stop current music
+    sed $F
+    and 0
+    or $D
+    sta
+  
+; draw the title screen 
+    ses title_screen
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop_title:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $0
+    add
+    pua
+    not
+    sed $1
+    add
+    jc loop_title
+    poa
+  
+; wait till no buttons pressed
+    sed $F
+check_key:
+    or $F
+    sta
+    lda
+    jz ok_pass
+    and 0
+    jz check_key
+ok_pass:
+; wait for a button press
+    sed $F
+check_again:
+    or $F
+    sta
+    lda
+    jz check_again
+  
+; clear the screen
+    sed $F
+    and 0
+    or $5
+    sta
+
+; program the tone which will be played during the game
+    and 0
+    or $A
+    sta
+    or 15 
+    sta
+    ses MusicGamePlay
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+
+; start of the main game loop
+loop:
+
+; if RAM in 8 is zero, skip calculating random number
+    sed $8
+    lda
+    jz skip1
+
+; play the "music"
+    sed $F
+    and 0
+    or $B
+    sta
+
+; calculate a pseudo-random number
+    sed $3
+    lda
+    add
+    not
+    shl
+    add
+    not
+; save to RAM 3 and push to stack
+    sta
+    pua 
+
+skip1:
+
+; erase the last bullet, if any
+    sed $9
+    lda
+    jz skip_erase_bullet  ; x position 0? no bullet
+    sed $F
+    and 0
+    sta
+    sed $9
+    lda
+    sed $F
+    sta ; bullet x-position
+    sed $A
+    lda
+    sed $F
+    sta ; bullet y-position
+skip_erase_bullet:
+
+; scroll the screen right-to-left
+    sed $F  
+    and 0
+    or $6
+    sta
+    and 0
+    or 4
+    sta
+
+; check if the player "collided" with some enemy
+    and 0
+    or $2
+    sta
+    and 0 
+    sta
+    sed $4
+    lda
+    sed $F
+    sta
+    lda
+    jz did_not_collide
+; collided? game over
+    and 0
+    jz game_over
+  
+did_not_collide:
+
+; if RAM in 8 is 0, skip drawing the random enemy
+    sed $8
+    lda
+    jz skip2
+
+; put a "random" enemy at the right
+    sed $F
+    and 0
+    or 1
+    sta
+    or 15
+    sta
+    poa  ; pop the enemy y-position
+    sta
+
+skip2:
+; negate the value in RAM 8
+    sed $8
+    lda
+    not
+    sta
+
+; display the player
+    sed $F
+    and 0
+    or $1
+    sta
+    and 0  ; player X-position
+    sta
+    sed $4 ; player y-position
+    lda
+    sed $F
+    sta
+
+; there's a bullet?
+    sed $9
+    lda
+    jz skip_bullet_draw  ; x-position 0? no bullet
+
+; check if the bullet "hit" a enemy
+    sed $A
+    lda
+    pua
+    sed $9
+    lda
+    pua
+    sed $F
+    and 0
+    or 2
+    sta
+    poa
+    sta
+    poa
+    sta
+    lda
+    jz skip_hit_bullet  ; did not hit
+
+; erase enemy
+    sed $A
+    lda
+    pua
+    sed $9
+    lda
+    pua
+    sed $F
+    and 0
+    sta
+    poa
+    sta
+    poa
+    sta
+; reset bullet
+    sed $9
+    and 0
+    sta
+    jz skip_bullet_draw
+
+skip_hit_bullet:      
+; increment bullet x-position
+    sed $9
+    lda
+    sed $0
+    add
+    sed $9
+    sta
+; turned to zero? skip drawing
+    jz skip_bullet_draw
+    
+; display the bullet
+    sed $F
+    and 0
+    or 1
+    sta
+    sed $9
+    lda
+    sed $F
+    sta    ; bullet x-position
+    sed $A
+    lda
+    sed $F
+    sta    ; bullet y-position
+skip_bullet_draw:
+    
+; wait for a vsync
+    sed $F
+    and 0
+    or $4
+    sta
+
+; movement of the player and shooting
+; get buttons state
+    sed $F
+    or $F
+    sta
+    lda
+    shl
+    jc button1pressed
+    shl
+    jc button2pressed
+    shl
+    jc button3pressed
+    shl 
+    jc button1pressed
+
+; jump back to loop
+    and 0
+    jz loop
+
+; shot a bullet
+button1pressed:
+; is there a bullet?
+    sed $9
+    lda
+    jz no_bullet
+    and 0
+    jz loop
+no_bullet:
+    sed $9
+    or 1
+    sta     
+    sed $4
+    lda
+    sed $A
+    sta
+    and 0
+    jz loop
+
+; decrement player y positition
+button2pressed:
+    sed $4
+    lda
+    sed $0
+    not 
+    add
+; turned to zero?
+    jz resetto0
+    not
+    sed $4
+    sta
+    and 0
+    jz loop
+  
+; increment player y positition
+button3pressed:
+    sed $4
+    lda
+    sed $0
+    add
+; turned to zero?
+    jz resetto15
+    sed $4
+    sta
+    and 0
+    jz loop
+  
+resetto15:
+    or 15
+    sed $4
+    sta
+    and 0
+    jz loop
+  
+resetto0:
+    and 0
+    sed $4
+    sta
+    jz loop
+
+; increment the player score
+increment_score:
+    sed $5
+    lda
+    sed $2
+    add
+    sed $5
+    sta
+    jc increment_score2  
+    and 0
+    jz loop
+increment_score2:
+    sed $6
+    lda
+    sed $2
+    add
+    sed $6
+    sta
+    jc increment_score3
+    and 0
+    jz loop
+increment_score3:
+    sed $7
+    lda
+    sed $2
+    not
+    add
+    not
+    sed $7
+    sta
+; once you have done 512 movements, you win the game! :)
+    jz you_win_the_game
+    and 0
+    jz loop
+
+; you lose the game
+game_over:
+; stop current music
+    sed $F
+    and 0
+    or $D
+    sta
+; program the "game over" music
+    sed $F
+    and 0
+    or $A
+    sta
+    and 0
+    or 11 
+    sta
+    ses MusicGameOver
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+; draw the "game over" screen 
+    sed $F
+    ses gameover_screen
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop_gameover:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $0
+    add
+    pua
+    not
+    sed $1
+    add
+    jc loop_gameover
+    poa
+    and 0
+    jz go_flash
+  
+; you win the game
+you_win_the_game:
+; stop current music
+    sed $F
+    and 0
+    or $D
+    sta
+; program the "you win" music
+    sed $F
+    and 0
+    or $A
+    sta
+    and 0
+    or 12 
+    sta
+    ses MusicYouWin
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+; draw the "you win" screen 
+    sed $F
+    ses youwin_screen
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop_youwin:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $0
+    add
+    pua
+    not
+    sed $1
+    add
+    jc loop_youwin
+    poa
+    and 0
+    jz go_flash
+  
+; flash the screen
+go_flash:
+; wait for a vsync
+    sed $F
+    and 0
+    or $4
+    sta
+    sta
+    sta
+; negate the screen
+    and 0
+    or $7
+    sta
+; play the "music"
+    sed $F
+    and 0
+    or $B
+    sta
+; check the buttons
+    or $F
+    sta
+    lda
+; if button 2 or 3 are pressed, reset the game
+    shr
+    shr
+    jc go_start
+    shr
+    jc go_start
+    and 0
+    jz go_flash
+go_start:
+; wait for 5 vsyncs before reset  
+    and 0
+    or $4
+    sta
+    sta
+    sta
+    sta
+    sta
+    and 0
+    jz start
+
+; title screen
+title_screen:
+    db $EA,$67,$8A,$92
+    db $EE,$92,$2A,$92
+    db $EA,$62,$00,$00
+    db $89,$CE,$DA,$29
+    db $AB,$E9,$8A,$2E
+    db $00,$00,$D7,$77
+    db $D4,$44,$D7,$77
+    db $B4,$11,$B7,$77
+
+; "game over" screen
+gameover_screen:
+    db %00000000,%00000000
+    db %11101110,%11011011
+    db %10001010,%10101010
+    db %10101110,%10101011
+    db %10101010,%10101010
+    db %11101010,%10001011
+    db %00000000,%00000000
+    db %10101111,%11110101
+    db %10101111,%11110101
+    db %00000000,%00000000
+    db %11110101,%01110110
+    db %10010101,%01000101
+    db %10010101,%01110110
+    db %10010101,%01000101
+    db %11110010,%01110101
+    db %00000000,%00000000
+
+; "you win" screen
+youwin_screen:
+    db %00000000,%00000000
+    db %01010011,%00100100
+    db %01010100,%10100100
+    db %01110100,%10100100
+    db %00100100,%10100100
+    db %00100100,%10100100
+    db %01110011,%00011000
+    db %00000000,%00000000
+    db %10101010,%10101010
+    db %00000000,%00000000
+    db %01000101,%01000101
+    db %01000101,%01100101
+    db %01010101,%01010101
+    db %01010101,%01001100
+    db %01101101,%01000101
+    db %00000000,%00000000
+  
+; "musics"
+MusicGamePlay:
+    dn 7,7,7,2,9,4,2,7,7,0,7,0,7,0,2,0
+    
+MusicGameOver:
+    dn 9,8,6,5,3,2,3,2,5,3,2,2
+    
+MusicYouWin:
+    dn 5,6,5,6,7,9,11,11,9,7,6,5,5
+
+; EOF

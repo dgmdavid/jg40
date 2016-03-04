@@ -1,0 +1,71 @@
+;
+; Simple way to fill the screen with a image on JG40
+; by DGM
+;
+; This is another loop method. As you can see, this method saves 1 nibble in
+; RAM, compared to the image.jg4, but the code is about 12% slower.
+;
+
+; store 1 RAM $1 the loop
+    sed $1
+    and 0
+    or 1
+    sta
+
+; set ROM pointer to image
+    ses Image
+    
+; start the screen transfer mode
+    sed $F
+    and 0
+    or $3
+    sta 
+    
+; counter to 15
+    or 15
+    pua
+; do a 16 iterations loop
+loop:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa     ; get the counter
+    sed $1
+    cmp     ; compare with 1
+    jz exit ; less than 1? exit the loop
+; equal or greater? decrement counter by 1
+    not
+    add
+    not
+    pua     ; push counter
+    and 0
+    jz loop
+exit:
+   
+; stall
+    and 0
+end:
+    jz end
+
+; declare the image
+Image:
+    db %00000000,%00000000
+    db %00000111,%00111000
+    db %00000010,%01000100
+    db %00000010,%01000000
+    db %00100010,%01011100
+    db %00100010,%01000100
+    db %00011100,%00111000
+    db %00000000,%00000000
+    db %00000000,%00000000
+    db %00100100,%01111000
+    db %00100100,%10000100
+    db %00111100,%10000100
+    db %00000100,%10000100
+    db %00000100,%10000100
+    db %00001110,%01111000
+    db %00000000,%00000000
+
+; EOF

@@ -1,0 +1,1296 @@
+;
+; JAN-KEN-PON!
+;
+; A simple "Jan-Ken-Pon" game for JG40
+; by DGM
+; 
+; How to play:
+;  Press any key to start, then press 1 or 2 to cycle between paper, rock and
+;  scissors, press 3 or 4 to make you turn.
+;
+
+; variables at $D and $E used in loops
+    sed $D
+    and 0
+    or 1
+    sta
+    sed $E
+    or 15
+    sta  
+
+; make sure these memory locations are initialized in 0
+; memory $0 will be used to players's choice
+    sed $0
+    and 0
+    sta
+; memory $1 will be used to cpu's choice
+    sed $1
+    sta
+; memory $8 and $9 will be the indexes to traverse the cpu "choice" table
+    and 0
+    sed $8  ; 16's increments ("segment")
+    sta     
+    sed $9  ;  1's increments ("offset")
+    sta
+; memory $A will be used to the "return machine"
+
+;-------------------------------------------------------------------------------
+; display the intro
+;-------------------------------------------------------------------------------
+
+; wait a little...
+    and 0
+    or $4
+    sed $F
+    sta
+    sta
+    sta
+; "call" the jan-ken-pon animation, saving the "return" before
+    and 0
+    or 1
+    pua
+    and 0
+    jz jan_ken_pon
+return_main:
+
+; ok, put the "main screen" and wait for a button to start :D
+restart:    
+    ses jankenpon
+    sed $F
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop5:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $D
+    add
+    pua
+    not
+    sed $E
+    add
+    jc loop5
+    poa
+; wait for a button press
+    sed $F
+check_again:
+    or $F
+    sta
+    lda
+    jz check_again
+
+;-------------------------------------------------------------------------------
+; game logic
+;-------------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+; player's turn
+;-------------------------------------------------------------------------------
+
+; paper - "call" the "drawing function" for paper
+c_paper:
+    and 0
+    or 2
+    pua
+    and 0
+    jz draw_player_paper
+; check the keys
+return_p_paper:
+    sed $F
+    or $F
+    sta
+    lda
+    shl
+    jc c_rock
+    shl
+    jc c_rock
+    shl
+    jc chose_paper
+    shl
+    jc chose_paper
+    and 0
+    jz return_p_paper
+chose_paper:    
+; you chose the paper!
+    sed $0
+    and 0
+    or 1
+    sta
+    and 0
+    jz computer_turn
+    
+; rock - "call" the "drawing function" for rock
+c_rock:
+    and 0
+    or 3
+    pua
+    and 0
+    jz draw_player_rock
+; check the keys
+return_p_rock:
+    sed $F
+    or $F
+    sta
+    lda
+    shl
+    jc c_scissors
+    shl
+    jc c_scissors
+    shl
+    jc chose_rock
+    shl
+    jc chose_rock
+    and 0
+    jz return_p_rock
+chose_rock:
+; you chose the rock!
+    sed $0
+    and 0
+    or 2
+    sta
+    and 0
+    jz computer_turn
+   
+; scissors - "call" the "drawing function" for scissors
+c_scissors:
+    and 0
+    or 4
+    pua
+    and 0
+    jz draw_player_scissors
+; check the keys
+return_p_scissors:
+    sed $F
+    or $F
+    sta
+    lda
+    shl
+    jc c_paper
+    shl
+    jc c_paper
+    shl
+    jc chose_scissors
+    shl
+    jc chose_scissors
+    and 0
+    jz return_p_scissors
+chose_scissors:    
+; you chose the scissors!
+    sed $0
+    and 0
+    or 4
+    sta
+    ;and 0
+    ;jz computer_turn
+    
+;-------------------------------------------------------------------------------
+; computer's turn
+;  get the computer's turn on the cpu "choice" table
+;-------------------------------------------------------------------------------
+computer_turn:
+    
+; put S to "choice_table"    
+    ses choice_table
+
+; increment S by 16xMem[$8] times
+; counter at $8
+    sed $8
+    lda
+    pua
+rp1:
+    poa     ; pop counter
+    sed $D
+    cmp     ; compare with 1
+    jz erp1 ; less than 1? exit
+    not     ; equal or greater? decrement 1
+    add
+    not
+    pua     ; push counter
+; inner loop
+    and 0
+    or 15
+    pua
+rpin:
+    sed $1 
+    trr     ; transfer value from table to $1 and increment S
+; end inner loop
+    poa     ; pop counter
+    sed $D
+    cmp     ; compare with 1
+    jz ein  ; less than 1? exit
+    not     ; equal or greater? decrement 1
+    add
+    not
+    pua     ; push counter
+    and 0
+    jz rpin
+ein:
+    and 0
+    jz rp1
+erp1:
+
+; increment S by offset at $9
+; counter at $9
+    sed $9
+    lda
+    pua
+rp2:
+    sed $1
+    trr     ; transfer value from table to $1 and increment S    
+    poa     ; pop counter
+    sed $D
+    cmp     ; compare with 1
+    jz erp2 ; less than 1? exit
+    not     ; equal or greater? decrement 1
+    add
+    not
+    pua     ; push counter
+    and 0
+    jz rp2
+erp2:
+; the result is in $1!
+    ;sed $1
+    ;lda
+; increment inner counter
+    sed $9
+    lda
+    sed $D
+    add
+    sed $9
+    sta
+    jc increment_outer
+    and 0
+    jz skip_increment_outer
+increment_outer:
+; increment outer counter
+    sed $8
+    lda
+    sed $D
+    add
+    sed $8
+    sta
+skip_increment_outer:    
+    
+; "blacken" the screen
+;    sed $F
+;    and 0
+;    or $5
+;    sta
+;    and 0
+;    or $7
+;    sta
+
+; wait a little...
+    and 0
+    or $4
+    sed $F
+    sta
+    sta
+    sta
+
+; "call" the jan-ken-pon animation, saving the "return" before
+    and 0
+    or 8
+    pua
+    and 0
+    jz jan_ken_pon
+return_check:
+
+;-------------------------------------------------------------------------------
+; show player's choice
+;-------------------------------------------------------------------------------
+show_player_choice:
+; first, program the tone of player "playing"
+    sed $F
+    and 0
+    or $A
+    sta
+    ses you_play_tone
+    trr
+    trr
+    trr
+; play it!
+    and 0
+    or $B
+    sta
+; pick user's choice
+    sed $0
+    lda
+    shr
+    jc player_chose_paper
+    shr
+    jc player_chose_rock
+    shr 
+    jc player_chose_scissors
+; you should never got this far :D -- error?
+    and 0
+    jz end
+player_chose_paper:
+; call the draw paper "function"
+    and 0
+    or 5
+    pua
+    and 0
+    jz draw_player_paper
+return_c_paper:
+    and 0
+    jz show_computer_choice
+player_chose_rock:
+; call the draw rock "function"
+    and 0
+    or 6
+    pua
+    and 0
+    jz draw_player_rock
+return_c_rock:
+    and 0
+    jz show_computer_choice
+player_chose_scissors:
+; call the draw rock "function"
+    and 0
+    or 7
+    pua
+    and 0
+    jz draw_player_scissors
+return_c_scissors:
+    and 0
+    jz show_computer_choice
+
+;-------------------------------------------------------------------------------
+; show computer's choice
+;-------------------------------------------------------------------------------
+show_computer_choice:
+; wait a little... (1 second?)
+    and 0
+    or $4
+    sed $F
+    sta
+    sta
+    sta
+    sta
+    sta
+    sta
+    sta
+    sta
+    sta
+    sta
+; program the tone of computer "playing"
+    sed $F
+    and 0
+    or $A
+    sta
+    ses cpu_play_tone
+    trr
+    trr
+    trr
+; play it!
+    and 0
+    or $B
+    sta
+; pick computer's choice
+    sed $1
+    lda
+    shr
+    jc cpu_chose_paper
+    shr
+    jc cpu_chose_rock
+    shr 
+    jc cpu_chose_scissors
+; you should never got this far :D -- error?
+    and 0
+    jz end
+cpu_chose_paper:
+    ses cpu_paper
+    sed $F
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop_ccp:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $D
+    add
+    pua
+    not
+    sed $E
+    add
+    jc loop_ccp
+    poa
+; wait 
+    and 0
+    or $4
+    sed $F
+    sta
+    sta
+    sta
+    sta
+    sta
+    and 0
+    jz show_result
+cpu_chose_rock:
+    ses cpu_rock
+    sed $F
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop_ccr:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $D
+    add
+    pua
+    not
+    sed $E
+    add
+    jc loop_ccr
+    poa
+; wait 
+    and 0
+    or $4
+    sed $F
+    sta
+    sta
+    sta
+    sta
+    sta
+    and 0
+    jz show_result
+cpu_chose_scissors:
+    ses cpu_scissors
+    sed $F
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop_ccs:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $D
+    add
+    pua
+    not
+    sed $E
+    add
+    jc loop_ccs
+    poa
+; wait 
+    and 0
+    or $4
+    sed $F
+    sta
+    sta
+    sta
+    sta
+    sta
+;    and 0
+;    jz show_result
+
+;-------------------------------------------------------------------------------
+; show if you won or lose
+;-------------------------------------------------------------------------------
+show_result:
+
+; wait a little for the "cpu plays" tone to stop
+    sed $F
+    and 0
+    or $4
+    sta
+    sta
+    sta
+    
+; pick cpu's choice
+    sed $1
+    lda
+    pua
+; pick user's choice
+    sed $0
+    lda
+    shr
+    jc pc_paper
+    shr
+    jc pc_rock
+
+; you chose scissors
+    poa
+; paper? you win
+    shr
+    jc player_win
+; rock? you lose
+    shr 
+    jc player_lose
+; scissors? tie
+    and 0
+    jz player_tie
+    
+; you chose paper
+pc_paper:
+    poa
+; paper? tie
+    shr
+    jc player_tie
+; rock? you win
+    shr
+    jc player_win
+; scissors? you lose
+    and 0
+    jz player_lose
+
+; you chose rock
+pc_rock:
+    poa
+; paper? you lose
+    shr
+    jc player_lose
+; rock? tie
+    shr
+    jc player_tie
+; scissors? you win
+    and 0
+    jz player_win
+ 
+player_win:
+; program the you win tone!
+    sed $F
+    and 0
+    or $A
+    sta
+    ses win_tone
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+; play it!
+    and 0
+    or $B
+    sta
+    ses you_win
+    sed $F
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop_pw:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $D
+    add
+    pua
+    not
+    sed $E
+    add
+    jc loop_pw
+    poa
+    and 0
+    jz finito
+    
+player_tie:
+; program the game tie tone
+    sed $F
+    and 0
+    or $A
+    sta
+    ses tie_tone
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+; play it!
+    and 0
+    or $B
+    sta
+    ses game_tie
+    sed $F
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop_pt:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $D
+    add
+    pua
+    not
+    sed $E
+    add
+    jc loop_pt
+    poa
+    and 0
+    jz finito
+   
+player_lose:  
+; program the you lose tone :(
+    sed $F
+    and 0
+    or $A
+    sta
+    ses lose_tone
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+; play it!
+    and 0
+    or $B
+    sta
+    ses you_lose
+    sed $F
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop_pl:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $D
+    add
+    pua
+    not
+    sed $E
+    add
+    jc loop_pl
+    poa
+
+finito:
+    sed $F
+wait_key:
+; wait 100ms
+    and 0
+    or $4
+    sta
+; negate the screen
+;    and 0
+;    or $7
+;    sta
+; read the input
+    or $F
+    sta
+    lda
+    jz wait_key
+    
+; wait a little...
+    and 0
+    or $4
+    sed $F
+    sta
+    sta
+    sta
+; restart the game
+    and 0
+    jz restart
+
+;-------------------------------------------------------------------------------
+; jan-ken-pon! animation
+;-------------------------------------------------------------------------------
+jan_ken_pon:
+; program a tone to be played
+    sed $F
+    and 0
+    or $A
+    sta
+    ses play_tone
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+; play it!
+    and 0
+    or $B
+    sta
+; jan
+    ses jan
+    sed $F
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop1:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $D
+    add
+    pua
+    not
+    sed $E
+    add
+    jc loop1
+    poa
+; wait 500ms
+    and 0
+    or $4
+    sed $F
+    sta
+    sta
+    sta
+    sta
+    sta
+; ken
+    ses ken
+    sed $F
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop2:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $D
+    add
+    pua
+    not
+    sed $E
+    add
+    jc loop2
+    poa
+; wait 500ms
+    and 0
+    or $4
+    sed $F
+    sta
+    sta
+    sta
+    sta
+    sta
+; pon
+    ses pon
+    sed $F
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop3:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $D
+    add
+    pua
+    not
+    sed $E
+    add
+    jc loop3
+    poa
+; wait 300ms
+    and 0
+    or $4
+    sed $F
+    sta
+    sta
+    sta
+; negate the screen nine times
+    or 6
+    pua
+loop4:
+    sed $F
+    and 0
+    or $7
+    sta
+    and 0
+    or $4
+    sta   
+    poa
+    sed $D
+    add
+    pua
+    not
+    sed $E
+    add
+    jc loop4
+    poa
+; go to the return machine 
+    and 0
+    jz return_machine
+
+;-------------------------------------------------------------------------------
+; draws the player's paper
+;-------------------------------------------------------------------------------
+draw_player_paper:    
+    ses you_paper
+    sed $F
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop_dpp:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $D
+    add
+    pua
+    not
+    sed $E
+    add
+    jc loop_dpp
+    poa
+; wait 
+    and 0
+    or $4
+    sed $F
+    sta
+    sta
+    sta
+    sta
+    sta
+; go to the return machine 
+    and 0
+    jz return_machine
+
+;-------------------------------------------------------------------------------
+; draws the player's rock
+;-------------------------------------------------------------------------------
+draw_player_rock:    
+    ses you_rock
+    sed $F
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop_dpr:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $D
+    add
+    pua
+    not
+    sed $E
+    add
+    jc loop_dpr
+    poa
+; wait 
+    and 0
+    or $4
+    sed $F
+    sta
+    sta
+    sta
+    sta
+    sta
+; go to the return machine 
+    and 0
+    jz return_machine
+
+;-------------------------------------------------------------------------------
+; draws the player's scissors
+;-------------------------------------------------------------------------------
+draw_player_scissors:
+    ses you_scissors
+    sed $F
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop_dps:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $D
+    add
+    pua
+    not
+    sed $E
+    add
+    jc loop_dps
+    poa
+; wait 
+    and 0
+    or $4
+    sed $F
+    sta
+    sta
+    sta
+    sta
+    sta
+; go to the return machine 
+    and 0
+    jz return_machine
+
+
+;-------------------------------------------------------------------------------
+; "return machine"
+; this will control the "return" of "sub-routines" to pre-defined locations
+; "pushed" to stack
+;-------------------------------------------------------------------------------
+return_machine:
+    sed $A
+    
+; is it 1?
+s1:
+    and 0
+    or 1
+    sta
+    poa
+    cmp
+    pua
+    jc s2
+    jz s2
+    poa
+    and 0
+    jz return_main
+    
+; is it 2?
+s2:
+    and 0
+    or 2
+    sta
+    poa
+    cmp
+    pua
+    jc s3
+    jz s3
+    poa
+    and 0
+    jz return_p_paper
+
+; is it 3?    
+s3:
+    and 0
+    or 3
+    sta
+    poa
+    cmp
+    pua
+    jc s4
+    jz s4
+    poa
+    and 0
+    jz return_p_rock
+
+; is it 4?    
+s4:
+    and 0
+    or 4
+    sta
+    poa
+    cmp
+    pua
+    jc s5
+    jz s5
+    poa
+    and 0
+    jz return_p_scissors
+    
+; is it 5?    
+s5:
+    and 0
+    or 5
+    sta
+    poa
+    cmp
+    pua
+    jc s6
+    jz s6
+    poa
+    and 0
+    jz return_c_paper
+
+; is it 6?    
+s6:
+    and 0
+    or 6
+    sta
+    poa
+    cmp
+    pua
+    jc s7
+    jz s7
+    poa
+    and 0
+    jz return_c_rock
+
+; is it 7?    
+s7:
+    and 0
+    or 7
+    sta
+    poa
+    cmp
+    pua
+    jc s8
+    jz s8
+    poa
+    and 0
+    jz return_c_scissors
+
+; is it 8?
+s8:
+    and 0
+    or 8
+    sta
+    poa
+    cmp
+    pua
+    jc s9
+    jz s9
+    poa
+    and 0
+    jz return_check
+
+s9:
+
+; end
+    and 0
+end:
+    jz end
+        
+;-------------------------------------------------------------------------------
+; jan-ken-pon tones
+;-------------------------------------------------------------------------------
+you_play_tone:
+dn 1,0,5
+
+cpu_play_tone:
+dn 1,6,1
+
+play_tone:
+dn 4,2,2,5,5,7
+
+win_tone:
+dn 7,5,5,7,7,8,9,9,9
+
+tie_tone:
+dn 6,2,3,4,5,4,3,3
+
+lose_tone:
+dn 8,0,0,2,2,0,0,3,3,3
+
+;-------------------------------------------------------------------------------
+; declare the images
+;-------------------------------------------------------------------------------
+you_paper:
+db $00,$00,$08,$00
+db $14,$00,$14,$00
+db $14,$00,$E3,$C0
+db $00,$20,$03,$C0
+db $00,$20,$C3,$C0
+db $30,$40,$0F,$80
+db $00,$00,$00,$00
+db $00,$00,$00,$00
+
+you_rock:
+db $00,$00,$00,$00
+db $00,$00,$0E,$00
+db $11,$00,$E7,$80
+db $00,$40,$00,$C0
+db $00,$40,$C0,$C0
+db $30,$40,$0F,$80
+db $00,$00,$00,$00
+db $00,$00,$00,$00
+
+you_scissors:
+db $00,$00,$00,$30
+db $00,$50,$0C,$90
+db $13,$20,$E2,$40
+db $0A,$80,$0A,$60
+db $04,$18,$C0,$64
+db $37,$58,$0C,$40
+db $03,$80,$00,$00
+db $00,$00,$00,$00
+
+cpu_paper:
+db $00,$00,$00,$00
+db $00,$00,$00,$10
+db $00,$28,$00,$28
+db $00,$28,$03,$C7
+db $04,$00,$03,$80
+db $04,$00,$03,$83
+db $02,$0C,$01,$F0
+db $00,$00,$00,$00
+
+cpu_rock:
+db $00,$00,$00,$00
+db $00,$00,$00,$00
+db $00,$00,$00,$70
+db $00,$88,$01,$C7
+db $02,$00,$03,$00
+db $02,$00,$03,$03
+db $02,$0C,$01,$F0
+db $00,$00,$00,$00
+
+cpu_scissors:
+db $00,$00,$00,$00
+db $00,$00,$0C,$00
+db $0A,$00,$09,$30
+db $04,$C8,$02,$47
+db $01,$50,$03,$50
+db $0C,$20,$11,$03
+db $26,$EC,$3A,$30
+db $01,$C0,$00,$00
+
+you_win:
+db $00,$00,$00,$00
+db $00,$00,$1C,$38
+db $22,$44,$22,$44
+db $00,$00,$40,$02
+db $40,$02,$20,$04
+db $30,$0C,$3F,$FC
+db $1F,$F8,$0F,$F0
+db $00,$00,$00,$00
+
+game_tie:
+db $00,$00,$00,$00
+db $00,$00,$00,$00
+db $02,$02,$00,$07
+db $FA,$F7,$22,$87
+db $22,$F2,$22,$82
+db $22,$F0,$00,$02
+db $00,$00,$00,$00
+db $00,$00,$00,$00
+
+you_lose:
+db $00,$00,$40,$00
+db $A0,$00,$E0,$00
+db $06,$60,$18,$18
+db $00,$00,$00,$00
+db $00,$00,$00,$00
+db $0F,$F0,$10,$08
+db $20,$04,$20,$04
+db $00,$00,$00,$00
+
+jan:
+db $00,$00,$00,$00
+db $00,$00,$FF,$FF
+db $00,$00,$39,$92
+db $12,$5A,$53,$D6
+db $52,$52,$32,$52
+db $00,$00,$FF,$FF
+db $00,$00,$00,$00
+db $00,$00,$00,$00
+
+ken:
+db $00,$00,$00,$00
+db $FF,$FF,$00,$00
+db $00,$00,$49,$D2
+db $52,$1A,$63,$D6
+db $52,$16,$49,$D2
+db $00,$00,$00,$00
+db $FF,$FF,$00,$00
+db $00,$00,$00,$00
+
+pon:
+db $AA,$AA,$55,$55
+db $00,$00,$00,$02
+db $00,$07,$F6,$97
+db $99,$D7,$F9,$F2
+db $89,$B2,$86,$90
+db $00,$02,$00,$00
+db $00,$00,$55,$55
+db $AA,$AA,$00,$00
+
+jankenpon:
+db $76,$48,$29,$68
+db $AF,$58,$A9,$58
+db $49,$48,$00,$00
+db $0A,$E9,$0A,$8D
+db $0C,$EB,$0A,$8B
+db $0A,$E9,$00,$02
+db $E6,$4A,$AD,$6A
+db $ED,$58,$86,$4A
+
+;-------------------------------------------------------------------------------
+; cpu "choices" table
+; ok, bite me! :D as you can see it's very hard to make a convincing 
+; pseudo-random number generator in this wasteland :)
+; 256 nibbles
+;-------------------------------------------------------------------------------
+choice_table:
+dn 4,1,1,2,2,1,1,4,2,4,1,2,2,1,4,2 
+dn 4,2,4,2,2,2,2,2,2,4,1,1,2,1,4,4 
+dn 2,1,4,1,4,2,4,1,2,4,2,4,4,4,1,4 
+dn 1,4,1,1,1,4,2,2,2,4,1,4,1,2,2,1 
+dn 2,1,4,2,4,4,4,2,1,1,1,4,1,1,4,2 
+dn 4,1,2,2,2,2,2,4,4,2,2,2,4,2,4,1 
+dn 4,2,4,4,4,1,2,1,2,4,4,1,2,1,1,2 
+dn 4,2,4,4,4,4,4,4,2,2,4,4,4,2,1,1 
+dn 1,1,4,4,2,4,1,1,2,2,1,4,2,1,4,2 
+dn 4,2,2,4,4,2,1,2,4,1,2,4,1,1,4,4 
+dn 4,1,2,1,1,2,4,4,4,2,4,1,4,2,2,2 
+dn 1,2,4,1,1,2,4,4,1,4,4,1,1,4,1,2 
+dn 4,4,1,1,1,1,1,2,2,2,1,1,2,1,2,1 
+dn 2,1,2,2,2,1,2,2,2,2,2,4,2,4,2,4 
+dn 1,2,4,1,1,2,4,4,1,4,4,4,4,1,1,1 
+dn 1,1,4,1,2,4,1,2,1,4,2,1,2,2,4,4 
+
+; EOF

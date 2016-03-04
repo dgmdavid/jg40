@@ -1,0 +1,229 @@
+;
+; Input sample for JG40
+; by DGM
+;
+
+; store 1 and 15 to RAM $1 and $2 for the loop
+    sed $1
+    and 0
+    or 1
+    sta
+    sed $2
+    or 15
+    sta  
+
+start:
+
+; wait for a vsync
+    sed $F
+    and 0 
+    or $4
+    sta
+
+; check the buttons state
+    sed $F
+    or $F
+    sta
+    lda
+
+; draw which button is pressed
+    shr
+    jc DrawButton4
+    shr
+    jc DrawButton3
+    shr
+    jc DrawButton2
+    shr
+    jc DrawButton1
+ 
+; no button pressed? clear the screen
+    sed $F
+    or $5
+    sta
+    
+; jump back to start
+    and 0
+    jz start
+  
+DrawButton1:
+; display the number 1
+    ses ImageButton1
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop1:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $1
+    add
+    pua
+    not
+    sed $2
+    add
+    jc loop1
+    poa
+; jump back to the start
+    and 0
+    jz start
+
+DrawButton2:
+; display the number 2
+    ses ImageButton2
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop2:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $1
+    add
+    pua
+    not
+    sed $2
+    add
+    jc loop2
+    poa
+; jump back to the start
+    and 0
+    jz start
+
+DrawButton3:
+; display the number 3
+    ses ImageButton3
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop3:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $1
+    add
+    pua
+    not
+    sed $2
+    add
+    jc loop3
+    poa
+; jump back to the start
+    and 0
+    jz start
+
+DrawButton4:
+; display the number 4
+    ses ImageButton4
+    and 0
+    or $3
+    sta 
+    or 15
+    pua
+loop4:
+    sed $F
+    trr
+    trr
+    trr
+    trr
+    poa
+    sed $1
+    add
+    pua
+    not
+    sed $2
+    add
+    jc loop4
+    poa
+; jump back to the start
+    and 0
+    jz start
+
+; declare the images
+ImageButton1:
+    db %00000000,%00000000
+    db %00000000,%00000000
+    db %00000000,%00000000
+    db %00000001,%10000000
+    db %00000111,%10000000
+    db %00000111,%10000000
+    db %00000001,%10000000
+    db %00000001,%10000000
+    db %00000001,%10000000
+    db %00000001,%10000000
+    db %00000001,%10000000
+    db %00000111,%11100000
+    db %00000111,%11100000
+    db %00000000,%00000000
+    db %00000000,%00000000
+    db %00000000,%00000000
+
+ImageButton2:
+    db %00000000,%00000000
+    db %00000000,%00000000
+    db %00000000,%00000000
+    db %00000011,%11000000
+    db %00000110,%01100000
+    db %00001100,%00110000
+    db %00001100,%00110000
+    db %00000000,%00110000
+    db %00000000,%01100000
+    db %00000001,%10000000
+    db %00000011,%00000000
+    db %00001111,%11110000
+    db %00001111,%11110000
+    db %00000000,%00000000
+    db %00000000,%00000000
+    db %00000000,%00000000
+
+ImageButton3:
+    db %00000000,%00000000
+    db %00000000,%00000000
+    db %00000000,%00000000
+    db %00001111,%11100000
+    db %00001111,%11100000
+    db %00000000,%00110000
+    db %00000000,%00110000
+    db %00000011,%11100000
+    db %00000011,%11100000
+    db %00000000,%00110000
+    db %00000000,%00110000
+    db %00001111,%11100000
+    db %00001111,%11100000
+    db %00000000,%00000000
+    db %00000000,%00000000
+    db %00000000,%00000000
+
+ImageButton4:
+    db %00000000,%00000000
+    db %00000000,%00000000
+    db %00000000,%00000000
+    db %00011000,%01100000
+    db %00011000,%01100000
+    db %00011000,%01100000
+    db %00011000,%01100000
+    db %00011111,%11100000
+    db %00001111,%11100000
+    db %00000000,%01100000
+    db %00000000,%01100000
+    db %00000001,%11111000
+    db %00000001,%11111000
+    db %00000000,%00000000
+    db %00000000,%00000000
+    db %00000000,%00000000
+
+; EOF

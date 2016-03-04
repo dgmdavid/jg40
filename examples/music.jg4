@@ -1,0 +1,94 @@
+;
+; Music sample for JG40
+; by DGM
+;
+
+start:
+
+; program a sequence of tones
+    sed $F
+    or $A
+    sta
+
+; we will send 16 tones, but since "0" tones is 1 tone, write tones-1, 15
+    and 0
+    or 15 
+    sta
+; transfer the sequence from ROM to SNDRAM, 16 nibbles
+    ses Music01
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    
+; play the sequence
+    sed $F
+    and 0
+    or $B
+    sta
+
+; wait the sequence to finish
+wait_part1:
+    and 0
+    or $C
+    sta
+    lda
+    jz end_part1
+    and 0
+    jz wait_part1
+end_part1:
+
+; program the second part of the sequence
+    sed $F
+    and 0
+    or $A
+    sta
+; we will send 8 tones
+    and 0
+    or 7 
+    sta
+; transfer the sequence from ROM to SNDRAM, 8 nibbles
+    ses Music01_part2
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+    trr
+
+; play the second part
+    sed $F
+    and 0
+    or $B
+    sta
+
+; wait the second sequence to finish, second way to do it (CPU in wait-state)
+    and 0
+    or $E
+    sta
+ 
+; jump back to the start
+    and 0
+    jz start
+
+; define the sequence of tones
+Music01:
+    dn 0,2,4,5,5,5,0,2,0,2,2,2,0,7,5,4
+Music01_part2:
+    dn 4,4,0,2,4,5,5,5
+
+; EOF

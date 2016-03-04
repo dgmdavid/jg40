@@ -1,0 +1,56 @@
+;
+; Scrolling sample for JG40
+; by DGM
+;
+
+; store 1 in RAM $1
+    sed $1
+    or 1
+    sta 
+
+loop:
+; load RAM $0
+    sed $0
+    lda
+
+; add 1
+    sed $1
+    add
+
+; save to RAM $0
+    sed $0
+    sta
+
+; push to stack
+    pua
+
+; put pixel
+    sed $F
+    and 0
+    or $1
+    sta
+; x position
+    and 0
+    sta
+; y position from stack
+    poa
+    sed $F
+    sta
+
+; wait for a vsync
+    and 0
+    or $4
+    sta
+
+; now, scroll the screen left to right
+    and 0
+    or $6
+    sta
+    and 0
+    sta
+
+; jump back
+    and 0
+    jz loop
+
+; EOF
