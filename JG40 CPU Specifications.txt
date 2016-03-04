@@ -1,0 +1,470 @@
+--------------------------------------------------------------------------------
+- Jaguar Project
+- Virtual Video-Game Hardware System
+- by David G. Maziero (https://twitter.com/dgmdavid/)
+-
+- Jaguar Virtual 4-bit Hand-held Video-Game System
+-
+- Rev. 0.5 09/04/2008 -- A lot of revisions and formatting issues.
+- Rev. 0.4 08/14/2008 -- More "features" added.
+- Rev. 0.3 08/09/2008 -- Some modifications on sound and video part.
+- Rev. 0.2 06/05/2008 -- Revision and corrections.
+- Rev. 0.1 06/29/2007 -- Begin of work.
+--------------------------------------------------------------------------------
+
+  The Jaguar
+  ----------
+    Jaguar is an hypothetical hardware of a hand-held video-game system. It does
+  not exist actually. All of its parts were based on actual architecture of 
+  other systems, but they do not represent any of them. 
+                                            (TODO: this part needs more details) 
+  
+
+  The Microprocessor
+  ------------------
+    Jaguar Virtual Hand-held Video-Game uses a microprocessor called JG40.
+    JG40 is a virtual 4-bit microprocessor with a mini instruction set, which 
+  runs at 14.8Khz.
+    It has 5 registers:
+
+      A - 4-bit Accumulator
+      D - 4-bit RAM Data Address pointer 
+      S - 12-bit ROM Data Address pointer
+      P - 12-bit Program Pointer, not directly accessible
+      T - 4-bit Stack Pointer, not directly accessible
+      F - 4-bit Flags Register, not directly accessible
+
+      About the Flags Register:
+            Bit   0 - Zero Flag
+                  1 - Carry Flag
+                2-3 - Unused
+
+    Each opcode is 4-bit long (a nibble) and some opcodes expect an argument 
+  that may be either 4 or 12-bits long.
+    Each JG40 instruction has only one addressing mode, which can be either 
+  immediate or implicit.
+
+
+  The Memory
+  ----------
+    JG40 has 16 nibbles of RAM (8 bytes), 16 nibbles (8 bytes) of Stack RAM, 64 
+  nibbles (32 bytes) of VRAM, 16 nibbles (8 bytes) of Sound RAM. Each memory is 
+  isolated.
+    JG40 can address a maximum of 4096 nibbles (2048 bytes) of ROM. 
+    RAM Data pointer register (D) will point to a single nibble in RAM. 
+    ROM Data pointer register (S) will point to a single nibble in the ROM, used
+  by TRR instruction to transfer its contents to RAM pointed by D.
+    Program pointer will only point to the ROM area, where is the program code.
+  You can only change its "normal" course by calling JC or JZ.
+    Stack pointer only points to the Stack RAM and it isn't directly accessible.
+  Notice that Stack pointer (T) is rotative, which means that when T is 15 and 
+  you push something, it will come to zero, if it is zero and you pop something,
+  it will turn to 15.
+    Video RAM (VRAM) and Sound RAM (SNDRAM) are not directly acessible. 
+    To deal with these devices, you must use the memory mapped I/O port in RAM
+  at $F (read the next section for more details), so this means that you will 
+  only have 15 nibbles (7 bytes and a nibble) disponible in RAM to use to store 
+  your data.
+ 
+ 
+  The Memory Mapped I/O Port $F
+  -----------------------------
+    Since JG40 has a minimalistic instruction set, it does not have any instruc-
+  tions to communicate with hardware ports. In order to communicate with other
+  hardware parts, you must write and read data to a specific location in RAM, a 
+  memory mapped I/O port at $F. This is a multipurpose port, it serves to commu-
+  nicate with all other parts of the system, the video, the sound and the input.
+    Here is a quick description of all of the memory mapped I/O port functions:
+    ________________________________________________________________________
+   | write to $F   | next action              | result                      |
+   |---------------|--------------------------|-----------------------------|
+   |  $0           | write 2 nibbles          | Unset a pixel in screen     |
+   |  $1           | write 2 nibbles          | Set a pixel in screen       |
+   |  $2           | write 2 nibbles and read | See if a pixel is set       |
+   |  $3           | write 64 nibbles         | Fill the screen             |
+   |  $4           | nothing                  | CPU will wait for the vsync |
+   |  $5           | nothing                  | Clear the entire screen     |
+   |  $6           | write 1 nibble           | Perform a screen scrolling  |
+   |  $7           | nothing                  | Negate each pixel           |
+   |---------------|--------------------------|-----------------------------|
+   |  $A           | write up to 17 nibbles   | Program a sequence of tones |
+   |  $B           | nothing                  | Play/Replay the last music  |
+   |  $C           | read a nibble            | Check if music is playing   |
+   |  $D           | nothing                  | Stop the current music      |
+   |  $E           | nothing                  | CPU'll wait music to finish |
+   |---------------|--------------------------|-----------------------------|
+   |  $F           | read a nibble            | Get buttons state (input)   |
+    ------------------------------------------------------------------------
+    Each of these functions has a performance impact, since the CPU will stop
+  until the operation finishes, consuming a certain number of clock cycles.
+    For now on, we will call the memory mapped I/O port "MMIOP" for better 
+  reading.
+    More details in the "The Video", "The Sound" and "The Buttons" sections.
+
+
+  The Instruction Set
+  -------------------
+    The JG40 has a tiny instruction set with only 16 instructions, each one ha-
+  ving only one operator, with only one addressing mode, which can be immediate
+  or implicit. 
+                               (TODO: this part needs more details and revision)
+    Here is a quick description of all 16 instructions of JG40:
+
+                                Conventions:
+                     ______________________________________
+                    | i4  | Immediate 4-bit value          | 
+                    | i12 | Immediate 12-bit value         |
+                    | a12 | Immediate 12-bit address       |
+                    | A   | Register A (accumulator)       |
+                    | C   | Carry flag is affected         |
+                    | Z   | Zero flag is affected          |
+                    | Cc  | Cycles taken by an instruction |
+                    | N   | Nibbles used by an instruction |
+                     --------------------------------------
+  ____________________________________________________________________________
+ | Mnemonic |Opc | CZ | Description                                  | N | Cc |
+ |----------|----|----|----------------------------------------------|---|----|
+ | LDA      | $0 | -Z | Load A with memory at D.                     | 1 |  2 |
+ | STA      | $1 | -- | Store A in memory at D.                      | 1 |  2 |
+ | ADD      | $2 | CZ | Add memory value in D to A.                  | 1 |  4 |
+ | OR i4    | $3 | -Z | Logical OR with A.                           | 2 |  3 |
+ | AND i4   | $4 | -Z | Logical AND with A.                          | 2 |  3 |
+ | NOT      | $5 | -Z | Invert all bits of A.                        | 1 |  2 |
+ | SHL      | $6 | CZ | Binary left shift in A.                      | 1 |  2 |
+ | SHR      | $7 | CZ | Binary right shift in A.                     | 1 |  2 |
+ | PUA      | $8 | -- | Push A to stack.                             | 1 |  4 |
+ | POA      | $9 | -Z | Pop A from stack.                            | 1 |  4 |
+ | CMP      | $A | CZ | Compare A with memory in D.                  | 1 |  4 |
+ | JZ a12   | $B | -- | Conditional jump if Zero flag is set.        | 4 |  8 |
+ | JC a12   | $C | -- | Conditional jump if Carry flag is set.       | 4 |  8 |
+ | SED i4   | $D | -- | Set D.                                       | 2 |  5 |
+ | SES i12  | $E | -- | Set S.                                       | 4 |  7 |
+ | TRR      | $F | -Z | Transfer value in S to RAM in D.             | 1 |  6 |
+  ----------------------------------------------------------------------------
+
+    And here is a detailed description of all 16 instructions of JG40:
+
+    ----------------------------------------------------------------------------
+    LDA
+    ----------------------------------------------------------------------------
+     Load the nibble pointed by D to register A.
+
+     LDA - Opcode: 0 - Cycles: 2 - Nibbles: 1
+    ----------------------------------------------------------------------------
+
+    ----------------------------------------------------------------------------
+    STA
+    ----------------------------------------------------------------------------
+     Store A to memory location pointed by D.
+
+     STA - Opcode: 1 - Cycles: 2 - Nibbles: 1
+    ----------------------------------------------------------------------------
+
+    ----------------------------------------------------------------------------
+    ADD
+    ----------------------------------------------------------------------------
+     Add the nibble pointed by D to A, and store the result in A.
+     If the result is higher than a 4-bit value, the Carry flag will be set.
+     If the result becomes zero, Zero flag will be set.
+
+     ADD - Opcode: 2 - Cycles: 4 - Nibbles: 1
+    ----------------------------------------------------------------------------
+
+    ----------------------------------------------------------------------------
+    OR
+    ----------------------------------------------------------------------------
+     Operate a logical binary OR in A with i4. If the value becomes zero, Zero
+     flag will be set. This operator expects a nibble as argument.
+
+     OR i4 - Opcode: 3 - Cycles: 3 - Nibbles: 2
+    ----------------------------------------------------------------------------
+
+    ----------------------------------------------------------------------------
+    AND
+    ----------------------------------------------------------------------------
+     Operate a logical binary AND in A with i4. If the value becomes zero, Zero 
+     flag will be set. This operator expects a nibble as argument.
+
+     AND i4 - Opcode: 4 - Cycles: 3 - Nibbles: 2
+    ----------------------------------------------------------------------------
+
+    ----------------------------------------------------------------------------
+    NOT
+    ----------------------------------------------------------------------------
+     Invert all bits of A. If the value becomes zero, Zero flag will be set.
+
+     NOT - Opcode: 5 - Cycles: 2 - Nibbles: 1
+    ----------------------------------------------------------------------------
+
+    ----------------------------------------------------------------------------
+    SHL/SHR
+    ----------------------------------------------------------------------------
+     Perform a logical binary left or right shift in A. If the value becomes 
+     zero, Zero flag will be set. If the most-significant bit is set and a SHL 
+     is performed, or the less-significant bit is set and a SHR is performed,
+     then Carry flag will be set.
+
+     SHL - Opcode: 6 - Cycles: 2 - Nibbles: 1
+     SHR - Opcode: 7 - Cycles: 2 - Nibbles: 1
+    ----------------------------------------------------------------------------
+
+    ----------------------------------------------------------------------------
+    PUA
+    ----------------------------------------------------------------------------
+     Push A to stack and increment Stack pointer by 1.
+
+     PUA - Opcode: 8 - Cycles: 4 - Nibbles: 1
+    ----------------------------------------------------------------------------
+
+    ----------------------------------------------------------------------------
+    POA
+    ----------------------------------------------------------------------------
+     Pop A from stack and decrement Stack pointer by 1. If the value poped is
+     zero, Zero flag will be set.
+
+     POA - Opcode: 9 - Cycles: 4 - Nibbles: 1
+    ----------------------------------------------------------------------------
+
+    ----------------------------------------------------------------------------
+    CMP
+    ----------------------------------------------------------------------------
+     Compare A with memory value pointed by D.
+     If A is greater, then Carry flag will be set and Zero flag unset.
+     If A is equal, then Carry and Zero flag will be unset.
+     If A is lesser, then Carry flag will be unset and Zero flag set.
+
+     CMP - Opcode: A - Cycles: 4 - Nibbles: 1
+    ----------------------------------------------------------------------------
+
+    ----------------------------------------------------------------------------
+    JZ
+    ----------------------------------------------------------------------------
+     Jump if Zero flag is set. This operator expects a 12-bit value as argument.
+     This is an absolute jump.
+
+     JZ a12 - Opcode: B - Cycles: 8 - Nibbles: 4
+    ----------------------------------------------------------------------------
+
+    ----------------------------------------------------------------------------
+    JC
+    ----------------------------------------------------------------------------
+     Jump if Carry flag is set. This operator expects a 12-bit value as argument.
+     This is an absolute jump.
+
+     JZ a12 - Opcode: C - Cycles: 8 - Nibbles: 4
+    ----------------------------------------------------------------------------
+
+    ----------------------------------------------------------------------------
+    SED
+    ----------------------------------------------------------------------------
+     Set the RAM Data pointer with an address. This operator expects a 4-bit
+     value as argument.
+
+     SED i4 - Opcode: D - Cycles: 5 - Nibbles: 2
+    ----------------------------------------------------------------------------
+
+    ----------------------------------------------------------------------------
+    SES
+    ----------------------------------------------------------------------------
+     Set the ROM Source Data Pointer with an address. This operator expects a
+     12-bit value as argument.
+
+     SES a12 - Opcode: E - Cycles: 7 - Nibbles: 4
+    ----------------------------------------------------------------------------
+
+    ----------------------------------------------------------------------------
+    TRR
+    ----------------------------------------------------------------------------
+      "Transfer ROM to RAM". Copy a nibble in ROM pointed by S to RAM pointed 
+      by D. S will be incremented by 1. If the value transferred is zero, then
+      Zero flag will be set.
+
+     SES - Opcode: F - Cycles: 6 - Nibbles: 1
+    ----------------------------------------------------------------------------
+
+
+  The Video
+  --------- 
+    Jaguar Virtual Hand-held Video-Game has a monocromatic LCD display with a
+  resolution of 16x16 pixels, at a rate of 10 frames per second. The system has
+  a rudimentary Video Processing Unit, whose functions are accessed using the
+  MMIOP. In order to use these functions, you must write the function number,
+  which can be between $0 to $7, to the MMIOP. Some functions require you to
+  write or read more data to the MMIOP in order to pass its parameters. The
+  following table will explain every function:  
+  
+  ------------------------------------------------------------------------------
+  Function $0 - Unset a pixel 
+  ------------------------------------------------------------------------------
+   This function will unset a pixel on the screen. You must write 2 nibbles to
+   define the X and Y coordinates of the pixel you want to unset.
+  ------------------------------------------------------------------------------
+
+  ------------------------------------------------------------------------------
+  Function $1 - Set a pixel 
+  ------------------------------------------------------------------------------
+   Use this to set a pixel on the screen. You must write 2 nibbles to define the
+   X and Y coordinates of the pixel you want to set.
+  ------------------------------------------------------------------------------
+
+  ------------------------------------------------------------------------------
+  Function $2 - Check if a pixel is set 
+  ------------------------------------------------------------------------------
+   If you need to know if a certain pixel is set, you must use this function.
+   Write 2 nibbles to define the X and Y coordinates of the pixel you want to 
+   check and then read. If A is 1, then that pixel is set.
+  ------------------------------------------------------------------------------
+
+  ------------------------------------------------------------------------------
+  Function $3 - Fill the entire screen 
+  ------------------------------------------------------------------------------
+   With this function you can fill the entire screen more easly. You need to
+   write 64 nibbles sequentially, where every nibble will describe four pixels,
+   starting on the left-top of the screen.
+  ------------------------------------------------------------------------------
+
+  ------------------------------------------------------------------------------
+  Function $4 - CPU will wait for the vsync 
+  ------------------------------------------------------------------------------
+   Using this function will put the CPU in a wait-state, waiting for the VPU to 
+   sign the moment it finishes the screen update, which occurs at every 100ms.
+  ------------------------------------------------------------------------------
+
+  ------------------------------------------------------------------------------
+  Function $5 - Clear the entire screen 
+  ------------------------------------------------------------------------------
+   Use this one if you want the entire screen to be cleaned. (All pixels unset.)
+  ------------------------------------------------------------------------------
+
+  ------------------------------------------------------------------------------
+  Function $6 - Perform a screen scrolling 
+  ------------------------------------------------------------------------------
+   This function will perform 4 types of full-screen scrolling. Write a value
+   from $0 to $3 to perform a left-to-right scrolling, varying from $0 (1 pixel)
+   to $3 (4 pixels) in speed. Write $4 to $7 to perform a right-to-left scroll-
+   ing, with the same methodology for speed. A top-to-bottom scrolling is done
+   by writing $8 to $B, and bottom-to-top with $C to $F, idem.
+  ------------------------------------------------------------------------------
+
+  ------------------------------------------------------------------------------
+  Function $7 - Negate the screen 
+  ------------------------------------------------------------------------------
+   This function will negate every pixel in the screen, i.e. a pixel which is
+   set will be unset, and an unset pixel will be set.    
+  ------------------------------------------------------------------------------
+   
+    Each of these functions has a performance impact, since the VPU will put the
+  main CPU in wait-state mode and it can take several clock cycles to perform 
+  the requested operation, as described in the following table:
+                            __________________________
+                           | function | cycles taken  |
+                           |----------|---------------|
+                           |    $0    |       4       |
+                           |    $1    |       4       |
+                           |    $2    |       5       |
+                           |    $3    |     128       |
+                           |    $4    | unpredictable |
+                           |    $5    |      64       |
+                           |    $6    |     256       |
+                           |    $7    |      64       |
+                            --------------------------
+    
+    
+  The Sound
+  ---------
+    Jaguar Virtual Hand-held Video-Game has a rudimentary Sound Processing Unit,
+  that can play 16 different tones, with a fixed duration of 250 msecs. The 
+  first tone, $0, is the middle C note (Do in the 4th octave), the second is C# 
+  Do sustained), and so forth; it means that you have the full chromatic scale 
+  on 4th octave, plus C to D# of the next octave.
+    Here a table for quick reference of tones:
+        
+          $0: C 3rd octv   $1: C#
+          $2: D            $3: D#
+          $4: E
+          $5: F            $6: F#
+          $7: G            $8: G#
+          $9: A            $A: A#
+          $B: B
+          $C: C 4rd octv   $D: C#
+          $E: D            $F: D#
+                
+     The SPU has 16 nibbles of SNDRAM to store up to 16 tones to be played se-
+  quentially once it is requested.
+     In order to call the SPU functions, you must write the function number, 
+  which can be between $A to $E, to the MMIOP. Some functions require you to  
+  write or read more data to the MMIOP in order to pass its parameters. The
+  following table will explain every function:  
+  
+  ------------------------------------------------------------------------------
+  Function $A - Program a sequence of tones 
+  ------------------------------------------------------------------------------
+   This function will fill the SNDRAM with a number of tones you want to play
+   (up to 16 tones). The first nibble you need to write is the number of tones
+   you want to play. Notice that if you write $0, it will mean 1 tone, and $F
+   will mean 16 tones. Once you have written the number of tones you want to 
+   play, you need to write that number of tones in a sequence. 
+   If a sequence is being played, this function will be ignored.    
+  ------------------------------------------------------------------------------
+
+  ------------------------------------------------------------------------------
+  Function $B - Play/replay the last programmed sequence
+  ------------------------------------------------------------------------------
+   Use this function after you have programmed a sequence of tones in order to
+   play or replay them. If a sequence is already being played, this function 
+   will be ignored.
+  ------------------------------------------------------------------------------
+
+  ------------------------------------------------------------------------------
+  Function $C - Check if a sequence is being played
+  ------------------------------------------------------------------------------
+   If you want to check if a sequence is being played, use this function. Read a
+   nibble and if its value is $1, then a sequence is being played.
+  ------------------------------------------------------------------------------
+
+  ------------------------------------------------------------------------------
+  Function $D - Stop the current sequence
+  ------------------------------------------------------------------------------
+   Call this function if you want to a sequence which is being played to stop.
+  ------------------------------------------------------------------------------
+
+  ------------------------------------------------------------------------------
+  Function $E - Wait for the sequence to finish
+  ------------------------------------------------------------------------------
+   When you use this function, the CPU will be put in wait-state mode, waiting
+   for the SPU to sign when a sequence of tones finishes to be played. If no 
+   sequence is being played, this function will just return immediately.
+  ------------------------------------------------------------------------------
+   
+    Each of these functions has a performance impact, since the SPU will put the
+  main CPU in wait-state mode and it can take several clock cycles to perform 
+  the requested operation, as described in the following table:
+                           ___________________________
+                          | function  | cycles taken  |
+                          |-----------|---------------|
+                          |    $A     |   up to 32    |
+                          |    $B     |      4        |
+                          |    $C     |      4        |
+                          |    $D     |      4        |
+                          |    $E     | unpredictable |
+                           ---------------------------
+       
+       
+  The Buttons
+  -----------
+    Jaguar Virtual Hand-held Video-Game has 4 buttons. In order to read the 
+  buttons state, you must use the $F function in the MMIOP, and then read from 
+  it. If the most-significant bit of the result is set, button 1 is pressed, and 
+  so forth. This operation is the only function existent to deal with the input 
+  and will consume an additional of 4 clock cycles to retrieve the data from the
+  input controller.
+
+
+  Conclusion
+  ----------
+        Ok. That's all folks. If you found any errors, or have any doubts, you
+    can contact me by e-mail in dgmdavid AT bol.com.br. Also, if you found any 
+    spelling errors, first, sorry for my bad english, and second, tell me about
+    it so I can correct it. :)
+
+EOF
